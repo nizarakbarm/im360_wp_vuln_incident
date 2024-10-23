@@ -1,0 +1,114 @@
+#!/bin/bash
+USER="$1"
+
+rootless_wp_cli_install() {
+  # $! is $USER
+  USER="$1"
+  VULN_API_PROVIDER=wordfence
+  # if need VULN_API_TOKEN, you need to define it manually inside .bashrc especially for wpscan
+
+  # CREATE .wp-cli dir
+  if [ ! -d "/home/$USER/.wp-cli" ]; then
+      mkdir -m 755 "/home/$USER/.wp-cli"
+  fi
+
+  # CREATE bin dir inside home
+  if [ ! -d "/home/$USER/.bin" ]; then
+      mkdir -m 755 "/home/$USER/.bin"
+  fi
+
+  cp /usr/local/lib/wp-cli-packages/composer.json "/home/$USER/.wp-cli/"
+
+  # install wp-cli and place it inside /home/$USER/.bin
+  curl -o "/home/$USER/.bin/wp" https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+  chmod 755 "/home/$USER/.bin/wp"
+
+  # test wp-cli
+  if ! php "/home/$USER/.bin/wp" --info > /dev/null 2>&1; then
+      echo "Warning: wp-cli installation failed!"
+      exit 1
+  fi
+
+
+  # get wp cli version
+  WP_CLI_VERSION=$(php "/home/$USER/.bin/wp" --version | cut -d" " -f2)
+  # dowload wp completion
+  curl -o "/home/$USER/.bin/wp-completion.bash" "https://raw.githubusercontent.com/wp-cli/wp-cli/v$WP_CLI_VERSION/utils/wp-completion.bash"
+  chmod 755 "/home/$USER/.bin/wp-completion.bash"
+
+
+  # set PATH for /home/$USER/.bin
+  if ! grep -v "#" "/home/$USER/.bashrc" | grep -q "export PATH=\$PATH:/home/\$USER/.bin"; then
+      echo "# set PATH for /home/$USER/.bin" >> "/home/$USER/.bashrc"
+      echo "export PATH=\$PATH:/home/$USER/.bin" >> "/home/$USER/.bashrc"
+  fi
+
+  # set source for wp-completion.bash
+  if ! grep -v "#" "/home/$USER/.bashrc" | grep -q "source /home/\$USER/.bin/wp-completion.bash"; then
+      echo "# set wp-completion" >> "/home/$USER/.bashrc"
+      echo "source /home/$USER/.bin/wp-completion.bash" >> "/home/$USER/.bashrc"
+  fi
+
+  # set WP_CLI_PACKAGES_DIR to /home/$USER/.wp-cli/packages
+  if ! grep -v "#" "/home/$USER/.bashrc" | grep -q "export WP_CLI_PACKAGES_DIR=/home/\$USER/.wp-cli/packages"; then
+      echo "# set WP_CLI_PACKAGES_DIR to /home/$USER/.wp-cli/packages" >> "/home/$USER/.bashrc"
+      echo "export WP_CLI_PACKAGES_DIR=/home/$USER/.wp-cli/packages" >> "/home/$USER/.bashrc"
+  fi
+
+  # sourcing .bashrc
+  source "/home/$USER/.bashrc"
+
+  # install wpcli-vulnerability-scanner
+  # it is using https://github.com/10up/wpcli-vulnerability-scanner
+  php "/home/$USER/.bin/wp" package install 10up/wpcli-vulnerability-scanner:dev-trunk
+
+  # set vuln api provider in .bashrc and define it inside wp-config.php
+  # by default using wordfence intelligence
+  echo "# set vuln_api_provider" >> "/home/$USER/.bashrc"
+  # check if using correct API Provider
+  if ! grep -v "#" "/home/$USER/.bashrc" | grep -E -q "export VULN_API_PROVIDER( )?=( )?'?(wordfence|wpscan|patchstack)'?"; then
+      if grep -v "#" "/home/$USER/.bashrc" | grep -E -q "export VULN_API_PROVIDER( )?=( )?$"; then
+          WRONG_API_PROVIDER_FORMAT=$(grep -v "#" "/home/$USER/.bashrc" | grep -E "export VULN_API_PROVIDER( )?=( )?$")
+          sed -i "/$WRONG_API_PROVIDER_FORMAT/d" "/home/$USER/.bashrc"
+          echo "export VULN_API_PROVIDER=$VULN_API_PROVIDER" >> "/home/$USER/.bashrc"
+      else
+          API_PROVIDER=$(grep -v "#" "/home/$USER/.bashrc" | grep -E "export VULN_API_PROVIDER( )?=( )?'?[[:print:]]'?" | awk -F"= " '{print $2}')
+          if [ -n "$API_PROVIDER" ]; then
+              if [[ ! $API_PROVIDER =~ \'?(wordfence|wpscan|patchstack)?\'$ ]]; then
+                  WRONG_API_PROVIDER_FORMAT=$(grep -v "#" "/home/$USER/.bashrc" | grep -E "export VULN_API_PROVIDER( )?=( )?'?[[:print:]]'?")
+                  sed -i "/$WRONG_API_PROVIDER_FORMAT/d" "/home/$USER/.bashrc"
+                  echo "export VULN_API_PROVIDER=$VULN_API_PROVIDER" >> "/home/$USER/.bashrc"
+              fi
+          else
+              echo "export VULN_API_PROVIDER=$VULN_API_PROVIDER" >> "/home/$USER/.bashrc"
+          fi
+      fi
+  fi
+
+  # find wp-config.php
+  find "/home/$USER/" -name wp-config.php -a -not -regex ".*dup-installer.*" | while read c; do
+      # add newline
+      echo -e "\n" >> "$c"
+      # check if VULN_API_PROVIDER has been defined in wp-config.php
+      # if not then define it
+      if ! grep -v "\/\*\|\*" "$c" | grep -E -q "define\(( )*'VULN_API_PROVIDER'( )*,( )*[[:print:]]+( )*\)"; then
+          echo "define('VULN_API_PROVIDER',getenv('VULN_API_PROVIDER'));" >> "$c"
+      fi
+
+      # check if VULN_API_TOKEN has been defined in wp-config.php
+      # if not then define it
+      if ! grep -v "\/\*\|\*" "$c" | grep -E -q "define\(( )*'VULN_API_TOKEN'( )*,( )*[[:print:]]+( )*\)"; then
+cat << EOF >> "$c"
+define('VULN_API_TOKEN',getenv('VULN_API_TOKEN'));
+EOF
+      fi
+      # all of constant variable for wp-cli-vuln-scan above is using environment variables that has been set in .bashrc
+  done
+}
+
+if [ -n "$USER" ]; then
+    rootless_wp_cli_install $USER
+else
+  echo "$USER is null!"
+  exit 1
+fi
