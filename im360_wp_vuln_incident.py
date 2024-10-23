@@ -17,6 +17,7 @@ import os
 import aiohttp
 from collections import defaultdict
 import validators
+from pathvalidate import sanitize_filepath
 
 INCIDENT_RESIDENT_FILE="/var/imunify360/imunify360-resident.db"
 TIME_RESIDENT_FILE="time_resident_file"
@@ -1421,11 +1422,13 @@ async def main():
     args = setArgument()
     delta_time = 5
 
-    if not os.path.exists(CONFIG_FILE):
+    config_file = sanitize_filepath(CONFIG_FILE)
+
+    if not os.path.exists(config_file):
         print(f"Warning: {CONFIG_FILE} not found. Add your configuration in .config file first!")
         return
 
-    with open(CONFIG_FILE, "r") as f:
+    with open(config_file, "r") as f:
         config_dict = yaml.safe_load(f)
         config_dict = await verify_config(config_dict)
 
