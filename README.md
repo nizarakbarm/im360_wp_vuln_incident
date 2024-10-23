@@ -6,8 +6,6 @@ The goal of the **Im360 WP Vuln Incident** project is to detect vulnerabilities 
 ## Target Audience
 - System Administrators of WHM Servers
 
-is
-
 ## Key Features
 - **Vulnerability Scanning**: Scans WordPress Core, themes, and plugins for vulnerabilities.
 - **Integration with Imunify360**: Utilizes Imunify360 Incident Data to trigger vulnerability scans.
