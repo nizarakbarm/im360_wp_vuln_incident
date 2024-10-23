@@ -1,0 +1,33 @@
+config:
+ task:
+  scan_concurrent: true
+ notification:
+  SLACK_WEBHOOKS_URL: [ SLACK_WEBHOOKS_URL ]
+  SLACK_CHANNEL: [ SLACK_CHANNEL ]
+  SHOW_VERSION: true
+  SHOW_STATUS: true
+ logging:
+    version: 1
+    disable_existing_loggers: False
+
+    formatters:
+      simple:
+          format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+      detailed:
+          format: '%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s'
+
+    handlers:
+      rotating_file_handler:
+        class: logging.handlers.RotatingFileHandler
+        level: INFO
+        formatter: detailed
+        filename: /var/log/imunify360_wp_vuln_incident.log
+        maxBytes: 524288000 # 500MB
+        backupCount: 2
+        mode: 'a'
+  
+    loggers:
+      my_logger:
+        level: INFO
+        handlers: [rotating_file_handler]
+        propagate: no
