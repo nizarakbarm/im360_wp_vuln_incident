@@ -4,7 +4,6 @@ bin/
 include/
 lib64/
 plantuml/
-pyproject.toml
 test.py
 *.png
 *.bak
