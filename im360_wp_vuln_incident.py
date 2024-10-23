@@ -42,7 +42,7 @@ async def verify_config(config_dict):
 
     # Helper function to validate slack channel names
     def is_valid_slack_channel_name(channel_name):
-        if channel_name.startwith('#'):
+        if channel_name.startswith('#'):
             channel_name = channel_name[1:]
         
         pattern = r'^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$'
@@ -300,7 +300,18 @@ async def check_for_tasks():
         #logger.info("No task available.")
         return False
 
-# coroutines for set argument
+# validate since argument
+def is_valid_since(since):
+    pattern = r"^\d+\s+(second|minute|hour|day|week|month|year)s?\s*"
+
+    return re.match(pattern, since) is not None
+
+# validate domain argument
+def is_valid_domain(domain):
+    pattern = r'^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, domain) is not None
+
+# functions for set argument
 def setArgument():
     # parse the argument
     parser = argparse.ArgumentParser(
@@ -309,6 +320,14 @@ def setArgument():
     parser.add_argument("-d", "--domain", help="Specify domain name", required=False)
     parser.add_argument("-s", "--since", help="the timestamp from", required=True)
     args = parser.parse_args()
+    
+    if args.domain:
+        if not is_valid_domain(args.domain):
+            parser.error(f"Invalid domain name: {args.domain}")
+    
+    if args.since:
+        if not is_valid_since(args.since):
+            parser.error(f"Invalid since argument: {args.since}")
 
     # if the length of argument only one, then print help and exit the program with exitcode 1
     if len(sys.argv) == 1:
