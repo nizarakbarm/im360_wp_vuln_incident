@@ -1,3 +1,4 @@
 aiohttp==3.9.1
 aiosqlite==0.20.0
 PyYAML==6.0.2
+validators

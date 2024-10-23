@@ -16,7 +16,7 @@ import re
 import os
 import aiohttp
 from collections import defaultdict
-import inspect
+import validators
 
 INCIDENT_RESIDENT_FILE="/var/imunify360/imunify360-resident.db"
 TIME_RESIDENT_FILE="time_resident_file"
@@ -47,6 +47,10 @@ async def verify_config(config_dict):
         print("Warning: SLACK_WEBHOOKS_URL not found in .config file.")
         return None
     
+    if not validators.url(config_dict.get("config").get("notification").get("SLACK_WEBHOOKS_URL")):
+        print("Warning: SLACK_WEBHOOKS_URL is not valid.")
+        return None
+
     if not config_dict.get("config").get("notification").get("SLACK_CHANNEL"):
         print("Warning: SLACK_CHANNEL not found in .config file.")
         return None
