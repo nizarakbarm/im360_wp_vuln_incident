@@ -7,3 +7,5 @@ plantuml/
 pyproject.toml
 test.py
 *.png
+*.bak
+rule_vuln-wp.json
