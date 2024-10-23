@@ -36,23 +36,46 @@ async def config_logging(dict_config):
 # coroutines for verifying required configuration entry in configuration file
 async def verify_config(config_dict):
     """ Check the config file. """
+
+    logger = logging.getLogger("verify_config")
+
+    # Helper function to validate slack channel names
+    def is_valid_slack_channel_name(channel_name):
+        if channel_name.startwith('#'):
+            channel_name = channel_name[1:]
+        
+        pattern = r'^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$'
+        return re.match(pattern, channel_name) is not None
+
     if not config_dict.get("config"):
         print("Warning: Configuration not found in .config file.")
+        logger.warning("Configuration not found in .config file.")
         return None
 
     if not config_dict.get("config").get("notification"):
         print("Warning: Notification not found in .config file.")
+        logger.warning("Notification not found in .config file")
         return None
+
     if not config_dict.get("config").get("notification").get("SLACK_WEBHOOKS_URL"):
         print("Warning: SLACK_WEBHOOKS_URL not found in .config file.")
+        logger.warning("SLACK_WEBHOOKS_URL not found in .config file")
         return None
     
     if not validators.url(config_dict.get("config").get("notification").get("SLACK_WEBHOOKS_URL")):
         print("Warning: SLACK_WEBHOOKS_URL is not valid.")
+        logger.warning("SLACK_WEBHOOKS_URL is not valid")
         return None
 
     if not config_dict.get("config").get("notification").get("SLACK_CHANNEL"):
         print("Warning: SLACK_CHANNEL not found in .config file.")
+        logger.warning("SLACK_CHANNEL is not found in config file")
+        return None
+    
+    slack_channel = config_dict.get("config").get("notification").get("SLACK_CHANNEL")
+    if not is_valid_slack_channel_name(slack_channel):
+        print("Warning: SLACK_CHANNEL is not valid.")
+        logger.warning("SLAC_CHANNEL is not valid")
         return None
 
     return config_dict
