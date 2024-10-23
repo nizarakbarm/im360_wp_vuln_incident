@@ -26,7 +26,9 @@ The goal of the **Im360 WP Vuln Incident** project is to detect vulnerabilities 
 ```plaintext
 aiohttp==3.9.1
 aiosqlite==0.20.0
+pathvalidate==3.2.1
 PyYAML==6.0.2
+validators==0.34.0
 ```
 
 ### Installation Step
