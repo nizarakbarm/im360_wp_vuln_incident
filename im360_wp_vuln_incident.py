@@ -1,23 +1,26 @@
 #!/usr/bin/python3.11
 
-import asyncio
-import aiosqlite
-import sys
+# Standard library imports
 import argparse
-import os
-from itertools import chain
+import asyncio
+from collections import defaultdict
 from datetime import datetime
+from itertools import chain
+from typing import Dict
 import json
-import yaml
 import logging
 from logging import config as loggingConfig
-#import requests
-import re
 import os
+import re
+import sys
+import yaml
+
+# Third-party imports
 import aiohttp
-from collections import defaultdict
-import validators
+import aiosqlite
 from pathvalidate import sanitize_filepath
+import validators
+#from tenacity import retry, stop_after_attempt, wait_fixed
 
 INCIDENT_RESIDENT_FILE="/var/imunify360/imunify360-resident.db"
 TIME_RESIDENT_FILE="time_resident_file"
@@ -234,14 +237,19 @@ async def format_theme_plugin_info(info, key):
 # calculate timestamp using to_thread
 async def calculate_timestamp_resident_file(resident_file):
     """ Calculate the timestamp from resident file. """
+    def getctime():
+        os.sync()
+        return os.path.getctime(resident_file)
     
-    return await asyncio.to_thread(lambda: os.path.getatime(resident_file))
+    #return await asyncio.to_thread(lambda: os.path.getctime(resident_file))
+    return await asyncio.to_thread(getctime)
 
 # read current timestamp resident file using to_thread
 async def read_timestamp_resident_file(resident_file):
     """ Read the timestamp from resident file. """
     logger = logging.getLogger("read_timestamp_resident_file")
     def read_file():
+        os.sync()
         if os.path.exists(resident_file):
             with open(resident_file, "r") as f:
                 try:
@@ -1286,6 +1294,8 @@ async def get_current_modifying_date(doc_root):
 async def process_task(domain, since, config_dict,show_version=False,show_status=False, delta_time=18000, scan_concurrent=False):
     """Process the task."""
 
+
+
     logger = logging.getLogger("process_task")
 
     if not os.path.exists(VULN_WP_DB):
@@ -1350,6 +1360,7 @@ async def process_task(domain, since, config_dict,show_version=False,show_status
                                                     result = result,
                                                     show_version = show_version
                                                 )
+
                                     else:
                                         vuln_dict = await full_vuln_scan(
                                                 username = username,
@@ -1441,6 +1452,10 @@ async def main():
     args = setArgument()
     delta_time = 5
 
+    sleep_time = 3
+    max_sleep_time = 5
+    base_sleep_time = 3
+
     config_file = sanitize_filepath(CONFIG_FILE)
 
     if not os.path.exists(config_file):
@@ -1517,12 +1532,13 @@ async def main():
                         kwargs["scan_concurrent"] = scan_concurrent
 
                 await process_task(*pos_args, **kwargs)
-                sleep_time = 5  # Reset sleep time after processing a task
+                sleep_time = base_sleep_time  # Reset sleep time after processing a task
             else:
                 logger.info(f"No task available, waiting for {sleep_time} seconds...")
                 await asyncio.sleep(sleep_time)
-                # Implement sum + 2 backoff, up to 10 seconds
-                sleep_time = min(sleep_time + 2, 7)
+                # Implement sum + 1 backoff, up to 5 seconds
+
+                sleep_time = min(sleep_time + 1, max_sleep_time)
     except asyncio.CancelledError:
         logger.info("Main loop was cancelled. Shutting down...")
     finally:
