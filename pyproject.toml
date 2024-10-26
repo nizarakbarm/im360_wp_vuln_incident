@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "imunify360-wp-vuln-incident"
+version = "1.0.0"
+description = "Im360 WP Vuln Incident project is to detect vulnerabilities in WordPress by analyzing incident logs and scanning the site for known vulnerabilities to determine if any match the attacks recorded"
+authors = ["Nizar"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+aiohttp = "3.10.5"
+aiosqlite = "0.20.0"
+pathvalidate = "3.2.1"
+pyyaml = "6.0.2"
+validators = "0.34.0"
+
+
+[tool.poetry.group.dev.dependencies]
+flake8 = "^7.1.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

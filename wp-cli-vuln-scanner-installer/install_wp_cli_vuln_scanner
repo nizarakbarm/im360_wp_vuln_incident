@@ -1,0 +1,94 @@
+#!/bin/bash
+USER=""
+
+install_wp_cli_vuln_scanner() {
+  USER="$1"
+  if [ -n "$USER" ]; then
+    cp /opt/imunify360_wp_vuln_incident/wp-cli-vuln-scanner-installer/rootless_wp_cli_installer_wrapper /home/$USER
+    chown $USER:$USER /home/$USER/rootless_wp_cli_installer_wrapper
+    cagefs_enter_user $USER /home/$USER/rootless_wp_cli_installer_wrapper $USER
+    rm -f /home/$USER/rootless_wp_cli_installer_wrapper
+  else
+    echo "$USER is null!"
+    exit 1
+  fi
+}
+uninstall_wp_cli_vuln_scanner() {
+  USER="$1"
+  if [ -z "$USER" ]; then
+    echo "Warning: need to define argument username after -r!"
+    exit 1
+  fi
+  
+  if cagefs_enter_user "$USER" wp package list --fields=name --format=ids | grep -q "10up/wpcli-vulnerability-scanner"; then
+    cagefs_enter_user "$USER" wp package uninstall 10up/wpcli-vulnerability-scanner:dev-trunk
+  fi
+
+  sed -i "/# set PATH for \/home\/$USER\/.bin/d" "/home/$USER/.bashrc" &>/dev/null
+  sed -i "/export PATH=\$PATH:\/home\/$USER\/.bin/d" "/home/$USER/.bashrc" &>/dev/null
+  sed -i "/# set wp-completion/d" "/home/$USER/.bashrc" &>/dev/null
+  sed -i "/source \/home\/$USER\/\.bin\/wp-completion.bash/d" "/home/$USER/.bashrc" &>/dev/null
+  sed -i "/# set WP_CLI_PACKAGES_DIR to \/home\/$USER\/\.wp-cli\/packages/d" "/home/$USER/.bashrc" &>/dev/null
+  sed -i "/export WP_CLI_PACKAGES_DIR=\/home\/$USER\/\.wp-cli\/packages/d" "/home/$USER/.bashrc" &>/dev/null
+  sed -i "/# set vuln_api_provider/d" "/home/$USER/.bashrc" &>/dev/null
+  sed -i "/export VULN_API_PROVIDER=wordfence/d" "/home/$USER/.bashrc" &>/dev/null
+
+  find "/home/$USER/" -name wp-config.php -a -not -regex ".*dup-installer.*"  -exec dirname {} + | while read p; do
+    if cagefs_enter_user "$USER" wp --path="$p" config has VULN_API_PROVIDER; then
+      cagefs_enter_user "$USER" wp --path="$p" config delete VULN_API_PROVIDER
+    fi
+    if cagefs_enter_user "$USER" wp --path="$p" config has VULN_API_TOKEN; then
+      cagefs_enter_user "$USER" wp --path="$p" config delete VULN_API_TOKEN
+    fi
+  done
+
+  if [ -d "/home/$USER/.wp-cli" ]; then
+    rm -rf "/home/$USER/.wp-cli"
+  fi
+
+  if [ -d "/home/$USER/.bin" ]; then
+    rm -rf "/home/$USER/.bin"
+  fi
+
+}
+
+usage() {
+  tput bold
+  tput setaf 2
+  echo "Install WP-CLI Vuln Scanner for User"
+  echo
+  echo -e "Syntax: "
+  echo -e "\tinstall_wp_cli_vuln_scanner [-u] [-r] \n"
+  echo -e "Usage: "
+  echo -e "\tinstall_wp_cli_vuln_scanner -u [USER] | install_wp_cli_vuln_scanner --user [USER]\n"
+  echo -e "\tinstall_wp_cli_vuln_scanner -r [USER] | install_wp_cli_vuln_scanner --remove [USER]\n"
+  echo -e "Options: "
+  echo -e "\t[-u  | --user] \t\t\t\t\t\t\t\tInstall WP-CLI Vuln Scanner for Specific User in Hosting."
+  echo -e "\t[-r  | --remove] \t\t\t\t\t\t\t\tInstall Uninstall WP-CLI Vuln Scanner for Specific User in Hosting."
+  echo
+  tput sgr0
+  exit 2
+}
+
+# Check if there is an argument, if none print usage and exit the program
+if [[ $# -eq 0 ]]; then
+    echo -e "${REDFB}Unknown Options${ECLEAR}"; usage ; exit 1
+fi
+
+#while loop for positional argument
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+  -u|--user)
+    install_wp_cli_vuln_scanner $2; shift 2;;
+  -r|--remove)
+    uninstall_wp_cli_vuln_scanner $2; shift 2;;
+  -h|--help) usage ; shift   ;; #help to print usage
+  -*|--*) echo -e "${REDFB}Unknown Options${ECLEAR}"; usage; exit 1 ;;
+  *)
+      POSITIONAL_ARGS+=("$1") #save positional arg
+      echo -e "${REDFB}Unknown Options${ECLEAR}"; usage; shift ;;
+  esac
+done
+
+set -- "${POSITIONAL_ARGS[@]}" #restore positional parameters
+
